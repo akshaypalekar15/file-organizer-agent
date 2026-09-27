@@ -1,0 +1,122 @@
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  background: #f7f7f8;
+  color: #1a1a1a;
+}
+header {
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e2e2e2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+header h1 { font-size: 18px; margin: 0; }
+.actions { display: flex; align-items: center; gap: 12px; }
+#current-root { font-size: 13px; color: #666; }
+button {
+  padding: 8px 14px;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button:hover { background: #f0f0f0; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+main {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+#suggestions-panel { grid-column: 1 / -1; }
+section {
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 16px;
+}
+section h2 { font-size: 14px; margin: 0 0 12px; color: #444; }
+.row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+.row:last-child { border-bottom: none; }
+.muted { color: #888; font-size: 12px; }
+.hidden { display: none; }
+
+button.secondary { border-color: #ddd; color: #444; }
+button.danger { border-color: #e0b4b4; color: #a33; }
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #06c;
+  text-decoration: underline;
+  font-size: 12px;
+}
+
+dialog {
+  border: 1px solid #e2e2e2;
+  border-radius: 10px;
+  padding: 0;
+  max-width: 520px;
+  width: 90%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+#settings-form { padding: 20px; }
+#settings-form h2 { margin: 0 0 16px; font-size: 16px; }
+#settings-form label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 6px;
+}
+#settings-form input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+#settings-form input:focus {
+  outline: none;
+  border-color: #06c;
+}
+#settings-form .hint {
+  font-size: 12px;
+  color: #777;
+  margin: 6px 0 18px;
+}
+#settings-form .hint a { color: #06c; }
+#settings-form code {
+  background: #f2f2f2;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+#settings-status { min-height: 16px; color: #a33; }
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #eee;
+  padding-top: 16px;
+}
+.dialog-actions .spacer { flex: 1; }
+#settings-save {
+  background: #06c;
+  border-color: #06c;
+  color: #fff;
+}
+#settings-save:hover { background: #05b; }
+#key-hint { margin: 10px 0 0; }

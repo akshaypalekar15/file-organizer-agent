@@ -1,0 +1,20 @@
+{
+  "name": "file-organizer-agent",
+  "version": "0.1.0",
+  "description": "Lightweight local agent that scans your filesystem, tracks file usage, and uses AI to suggest how to organize it.",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "chokidar": "^3.6.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1"
+  },
+  "author": "Akshay",
+  "license": "MIT"
+}

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+out/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+.env
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+npm-debug.log*
+.vscode/
+.idea/

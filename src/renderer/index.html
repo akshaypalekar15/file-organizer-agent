@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>File Organizer Agent</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>File Organizer Agent</h1>
+    <div class="actions">
+      <button id="pick-folder">Choose folder to scan</button>
+      <span id="current-root">No folder selected</span>
+      <button id="open-settings" class="secondary">Settings</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="stats-panel">
+      <h2>Storage by type</h2>
+      <div id="stats-list">Scan a folder to see stats.</div>
+    </section>
+
+    <section id="stale-panel">
+      <h2>Rarely used files</h2>
+      <div id="stale-list">Scan a folder to see stale files.</div>
+    </section>
+
+    <section id="suggestions-panel">
+      <h2>AI organization suggestions</h2>
+      <button id="get-suggestions" disabled>Get AI suggestions</button>
+      <p id="key-hint" class="muted hidden">
+        Add your own OpenRouter API key in <button id="hint-settings" class="link">Settings</button> to enable suggestions.
+      </p>
+      <div id="suggestions-list"></div>
+    </section>
+  </main>
+
+  <dialog id="settings-dialog">
+    <form id="settings-form" method="dialog">
+      <h2>Settings</h2>
+
+      <label for="api-key">OpenRouter API key</label>
+      <input
+        id="api-key"
+        type="password"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="sk-or-..."
+      />
+      <p class="hint">
+        Stored encrypted on this machine using your OS keychain
+        (<span id="storage-note">checking…</span>). It never leaves this app except
+        as an <code>Authorization</code> header to OpenRouter.
+      </p>
+      <p class="hint">
+        <a href="#" id="get-a-key">Get a key at openrouter.ai/keys</a>
+      </p>
+
+      <label for="model">Model</label>
+      <input
+        id="model"
+        type="text"
+        list="model-options"
+        spellcheck="false"
+        placeholder="anthropic/claude-sonnet-4.6"
+      />
+      <datalist id="model-options">
+        <option value="anthropic/claude-sonnet-4.6"></option>
+        <option value="anthropic/claude-haiku-4.5"></option>
+        <option value="openai/gpt-4o-mini"></option>
+        <option value="google/gemini-2.0-flash-001"></option>
+        <option value="openrouter/auto"></option>
+      </datalist>
+      <p class="hint">
+        Any slug from <a href="#" id="browse-models">openrouter.ai/models</a>. The
+        app sends file metadata only, never file contents.
+      </p>
+
+      <p id="settings-status" class="hint"></p>
+
+      <div class="dialog-actions">
+        <button type="button" id="clear-key" class="danger">Remove key</button>
+        <span class="spacer"></span>
+        <button type="button" id="settings-cancel">Cancel</button>
+        <button type="submit" id="settings-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

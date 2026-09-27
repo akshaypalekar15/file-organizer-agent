@@ -1,0 +1,12 @@
+# Normalize line endings so the repo doesn't churn across platforms.
+* text=auto eol=lf
+
+*.js   text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+LICENSE text eol=lf
+.gitattributes text eol=lf
+.gitignore    text eol=lf
