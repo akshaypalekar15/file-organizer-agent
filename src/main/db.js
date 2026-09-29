@@ -73,6 +73,68 @@ const statements = {
     GROUP BY extension
     ORDER BY total_size DESC
   `),
+
+  // Root-scoped variants. Matching on a prefix length rather than LIKE '%...%'
+  // avoids having to escape backslashes in Windows paths, and a file whose
+  // path merely starts with the same characters (chrome-react-seo vs
+  // chrome-react-seo-extension) is not swept in by accident.
+  listFilesInRoot: db.prepare(`
+    SELECT * FROM files
+    WHERE is_deleted = 0 AND substr(path, 1, ?) = ?
+    ORDER BY modified_at DESC
+    LIMIT ?
+  `),
+  listStaleInRoot: db.prepare(`
+    SELECT * FROM files
+    WHERE is_deleted = 0
+      AND modified_at < ?
+      AND (last_opened_at IS NULL OR last_opened_at < ?)
+      AND substr(path, 1, ?) = ?
+    ORDER BY modified_at ASC
+    LIMIT ?
+  `),
+  statsInRoot: db.prepare(`
+    SELECT extension, COUNT(*) as count, SUM(size) as total_size
+    FROM files
+    WHERE is_deleted = 0 AND substr(path, 1, ?) = ?
+    GROUP BY extension
+    ORDER BY total_size DESC
+  `),
+
+  // Full reset. The index is a derived cache of the filesystem, so wiping it
+  // is always recoverable by re-scanning; it never touches the user's files.
+  indexCounts: db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM files WHERE is_deleted = 0) AS files,
+      (SELECT COUNT(*) FROM scan_roots) AS roots
+  `),
+  clearFiles: db.prepare(`DELETE FROM files`),
+  clearRoots: db.prepare(`DELETE FROM scan_roots`),
 };
 
-module.exports = { db, statements };
+/** "C:\dir\" — every file under the root starts with this. */
+function rootPrefix(rootPath) {
+  return path.join(rootPath, path.sep);
+}
+
+/**
+ * Empties the index and forgets every scan root, reporting what was removed
+ * so the UI can say so. Reclaims the disk too, since a long-lived index can
+ * hold on to a lot of space after files have been deleted.
+ */
+function clearIndex() {
+  const { files, roots } = statements.indexCounts.get();
+  db.transaction(() => {
+    statements.clearFiles.run();
+    statements.clearRoots.run();
+  })();
+  try {
+    db.pragma("wal_checkpoint(TRUNCATE)");
+    db.pragma("vacuum");
+  } catch {
+    // Reclaiming space is best-effort; the delete already succeeded.
+  }
+  return { removedFiles: files, removedRoots: roots };
+}
+
+module.exports = { db, statements, rootPrefix, clearIndex };
