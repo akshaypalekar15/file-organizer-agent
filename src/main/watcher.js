@@ -14,6 +14,11 @@ function watchRoot(rootPath) {
     persistent: true,
     ignoreInitial: true, // initial population is handled by scanner.js
     awaitWriteFinish: { stabilityThreshold: 500 },
+    // Must match scanner.js, which skips links rather than following them.
+    // Left at its default (true), a junction pointing at an ancestor makes
+    // chokidar walk the tree forever and emit an unbounded stream of add
+    // events, which floods the index with duplicate rows.
+    followSymlinks: false,
   });
 
   watcher
@@ -27,6 +32,11 @@ function watchRoot(rootPath) {
 async function upsertFromDisk(filePath) {
   try {
     const stat = await fs.promises.stat(filePath);
+    // chokidar still reports a junction/symlink itself even with
+    // followSymlinks: false, and stat() follows it to a directory. Only real
+    // files belong in the index, matching what scanner.js records.
+    if (!stat.isFile()) return;
+
     const extension = path.extname(filePath).replace(".", "");
     statements.upsertFile.run({
       path: filePath,
@@ -44,9 +54,14 @@ async function upsertFromDisk(filePath) {
   }
 }
 
-function stopAll() {
-  for (const watcher of watchers.values()) watcher.close();
+/**
+ * Closes every watcher and waits for the close to settle, so that no in-flight
+ * add/unlink events can land after a caller has cleared the index.
+ */
+async function stopAll() {
+  const closing = [...watchers.values()].map((watcher) => watcher.close());
   watchers.clear();
+  await Promise.all(closing);
 }
 
 module.exports = { watchRoot, stopAll };

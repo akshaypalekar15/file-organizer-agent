@@ -51,6 +51,38 @@ ipcMain.handle("settings:save", async (_event, payload) => {
 
 ipcMain.handle("settings:clear", () => clearApiKey());
 
+// Confirmation for the index reset. Shown natively rather than with
+// window.confirm(), which Electron suppresses, and so the folder name and
+// counts are spelled out before anything is deleted.
+ipcMain.handle("confirm-clear", async (_event, summary = {}) => {
+  const { folder, fileCount = 0, rootCount = 0 } = summary;
+
+  const detail = [
+    fileCount || rootCount
+      ? `This removes ${fileCount} indexed ${fileCount === 1 ? "file" : "files"} across ${rootCount} ${
+          rootCount === 1 ? "folder" : "folders"
+        }.`
+      : "The index is already empty.",
+    folder ? `Current selection:\n${folder}` : null,
+    "Your actual files are not touched. You can re-scan at any time.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "Clear the index",
+    message: fileCount ? "Clear all indexed data?" : "Clear the index?",
+    detail,
+    buttons: ["Cancel", "Clear everything"],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+
+  return response === 1;
+});
+
 ipcMain.handle("open-external", async (_event, url) => {
   if (typeof url !== "string") return false;
   if (!EXTERNAL_LINK_ALLOWLIST.some((prefix) => url.startsWith(prefix))) return false;

@@ -1,31 +1,115 @@
+/* Theme tokens. Dark mode applies when the OS asks for it, unless an explicit
+   choice is stored on <html data-theme="light|dark">. */
+:root {
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #f0f0f2;
+  --border: #e2e2e2;
+  --border-strong: #cccccc;
+  --text: #1a1a1a;
+  --text-muted: #7c7c85;
+  --accent: #0066cc;
+  --accent-soft: rgba(0, 102, 204, 0.1);
+  --danger: #aa3333;
+  --danger-border: #e0b4b4;
+  --skeleton: #e7e7ea;
+  --skeleton-hi: #f6f6f8;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  --backdrop: rgba(0, 0, 0, 0.35);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171b;
+    --surface: #1c1f24;
+    --surface-2: #24272e;
+    --border: #2f333b;
+    --border-strong: #444a54;
+    --text: #e7e9ec;
+    --text-muted: #99a0aa;
+    --accent: #58a6ff;
+    --accent-soft: rgba(88, 166, 255, 0.14);
+    --danger: #ff7b72;
+    --danger-border: #6d3a37;
+    --skeleton: #262a31;
+    --skeleton-hi: #31363f;
+    --shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    --backdrop: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #15171b;
+  --surface: #1c1f24;
+  --surface-2: #24272e;
+  --border: #2f333b;
+  --border-strong: #444a54;
+  --text: #e7e9ec;
+  --text-muted: #99a0aa;
+  --accent: #58a6ff;
+  --accent-soft: rgba(88, 166, 255, 0.14);
+  --danger: #ff7b72;
+  --danger-border: #6d3d39;
+  --skeleton: #262a31;
+  --skeleton-hi: #31363f;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --backdrop: rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
 * { box-sizing: border-box; }
+
 body {
   font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
   margin: 0;
-  background: #f7f7f8;
-  color: #1a1a1a;
+  background: var(--bg);
+  color: var(--text);
 }
+
 header {
   padding: 16px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e2e2e2;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 header h1 { font-size: 18px; margin: 0; }
 .actions { display: flex; align-items: center; gap: 12px; }
-#current-root { font-size: 13px; color: #666; }
+#current-root {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 button {
   padding: 8px 14px;
-  border: 1px solid #ccc;
-  background: #fff;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
-button:hover { background: #f0f0f0; }
+button:hover { background: var(--surface-2); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { border-color: var(--border); color: var(--text-muted); }
+button.danger { border-color: var(--danger-border); color: var(--danger); }
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  font-size: 12px;
+}
+
 main {
   padding: 24px;
   display: grid;
@@ -33,90 +117,182 @@ main {
   gap: 20px;
 }
 #suggestions-panel { grid-column: 1 / -1; }
+#files-panel { grid-column: 1 / -1; }
+#files-panel .row span:first-child { max-width: 60ch; }
+
 section {
-  background: #fff;
-  border: 1px solid #e2e2e2;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
-section h2 { font-size: 14px; margin: 0 0 12px; color: #444; }
+section h2 { font-size: 14px; margin: 0 0 12px; color: var(--text-muted); }
+
 .row {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
   padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
 }
 .row:last-child { border-bottom: none; }
-.muted { color: #888; font-size: 12px; }
-.hidden { display: none; }
-
-button.secondary { border-color: #ddd; color: #444; }
-button.danger { border-color: #e0b4b4; color: #a33; }
-button.link {
-  border: none;
-  background: none;
-  padding: 0;
-  color: #06c;
-  text-decoration: underline;
+.row span.path {
+  font-family: Consolas, "SF Mono", Menlo, monospace;
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.muted { color: var(--text-muted); font-size: 12px; }
+.hidden { display: none; }
+.error { color: var(--danger); font-size: 13px; }
+
+/* --- list population ------------------------------------------------- */
+
+/* Rows arrive staggered so a populated list reads as "filled in" rather than
+   appearing all at once. Delays are capped so long lists don't crawl. */
+.row.reveal {
+  animation: row-in 0.22s ease-out both;
+}
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
 }
 
+.skeleton-row {
+  display: flex;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.skeleton-row:last-child { border-bottom: none; }
+.skeleton-bar {
+  height: 10px;
+  border-radius: 5px;
+  flex: 1;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton) 25%,
+    var(--skeleton-hi) 37%,
+    var(--skeleton) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.3s ease-in-out infinite;
+}
+.skeleton-bar.short { flex: 0 0 22%; }
+@keyframes skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+
+/* --- suggestions busy state ------------------------------------------ */
+
+.busy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+}
+.busy .busy-text { font-size: 13px; }
+.spinner {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border: 2px solid var(--skeleton);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spinner-rotate 0.7s linear infinite;
+}
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+button.busy { opacity: 0.7; cursor: progress; }
+
+/* --- settings dialog -------------------------------------------------- */
+
 dialog {
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0;
   max-width: 520px;
   width: 90%;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
 }
-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+dialog::backdrop { background: var(--backdrop); }
 #settings-form { padding: 20px; }
 #settings-form h2 { margin: 0 0 16px; font-size: 16px; }
 #settings-form label {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #444;
+  color: var(--text-muted);
   margin-bottom: 6px;
 }
-#settings-form input {
+#settings-form input,
+#settings-form select {
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   font-size: 13px;
   font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
 }
-#settings-form input:focus {
+#settings-form input:focus,
+#settings-form select:focus {
   outline: none;
-  border-color: #06c;
+  border-color: var(--accent);
 }
 #settings-form .hint {
   font-size: 12px;
-  color: #777;
+  color: var(--text-muted);
   margin: 6px 0 18px;
 }
-#settings-form .hint a { color: #06c; }
+#settings-form .hint a { color: var(--accent); }
 #settings-form code {
-  background: #f2f2f2;
+  background: var(--surface-2);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 11px;
 }
-#settings-status { min-height: 16px; color: #a33; }
+#settings-status { min-height: 16px; color: var(--danger); }
 .dialog-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
   padding-top: 16px;
 }
 .dialog-actions .spacer { flex: 1; }
 #settings-save {
-  background: #06c;
-  border-color: #06c;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
-#settings-save:hover { background: #05b; }
+#settings-save:hover { filter: brightness(1.08); background: var(--accent); }
 #key-hint { margin: 10px 0 0; }
+
+/* --- reduced motion --------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-bar { animation: skeleton-fade 1.6s ease-in-out infinite; background: var(--skeleton); }
+  @keyframes skeleton-fade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .row.reveal { animation: none; }
+  .spinner {
+    animation: spinner-fade 1.4s ease-in-out infinite;
+  }
+  @keyframes spinner-fade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  * { transition-duration: 0.01ms !important; }
+}

@@ -1,9 +1,9 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const { statements, db } = require("./db");
+const { statements, db, rootPrefix, clearIndex } = require("./db");
 const { scanDirectory } = require("./scanner");
-const { watchRoot } = require("./watcher");
+const { watchRoot, stopAll } = require("./watcher");
 const { getOrganizationSuggestions } = require("./ai");
 
 const PORT = 4287;
@@ -18,6 +18,9 @@ function startServer() {
     if (!rootPath || !fs.existsSync(rootPath)) {
       return res.status(400).json({ error: "rootPath does not exist" });
     }
+    if (!fs.statSync(rootPath).isDirectory()) {
+      return res.status(400).json({ error: "rootPath is not a directory" });
+    }
     try {
       const result = await scanDirectory(rootPath);
       watchRoot(rootPath);
@@ -31,8 +34,32 @@ function startServer() {
     res.json(statements.listRoots.all());
   });
 
+  app.get("/api/summary", (req, res) => {
+    res.json(statements.indexCounts.get());
+  });
+
+  // Full reset: stop watching first and wait for the watchers to close, so a
+  // queued add/unlink event can't resurrect a row we just deleted.
+  app.post("/api/clear", async (req, res) => {
+    try {
+      await stopAll();
+      res.json({ ok: true, ...clearIndex() });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Every read below takes an optional rootPath so the UI can scope a panel to
+  // the folder the user just picked. Without it they fall back to the whole
+  // index, which is how a scan of one folder can look empty while the panel
+  // fills up with files from somewhere else entirely.
   app.get("/api/files", (req, res) => {
     const limit = Number(req.query.limit) || 500;
+    const root = req.query.rootPath;
+    if (root) {
+      const prefix = rootPrefix(root);
+      return res.json(statements.listFilesInRoot.all(prefix.length, prefix, limit));
+    }
     res.json(statements.listFiles.all(limit));
   });
 
@@ -41,10 +68,20 @@ function startServer() {
     const days = Number(req.query.days) || 180;
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
     const limit = Number(req.query.limit) || 200;
+    const root = req.query.rootPath;
+    if (root) {
+      const prefix = rootPrefix(root);
+      return res.json(statements.listStaleInRoot.all(cutoff, cutoff, prefix.length, prefix, limit));
+    }
     res.json(statements.listStale.all(cutoff, cutoff, limit));
   });
 
   app.get("/api/stats", (req, res) => {
+    const root = req.query.rootPath;
+    if (root) {
+      const prefix = rootPrefix(root);
+      return res.json(statements.statsInRoot.all(prefix.length, prefix));
+    }
     res.json(statements.stats.all());
   });
 

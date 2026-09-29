@@ -18,6 +18,7 @@ const path = require("path");
 const { app, safeStorage } = require("electron");
 
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4.6";
+const THEMES = ["system", "light", "dark"];
 
 function settingsFile() {
   return path.join(app.getPath("userData"), "settings.json");
@@ -93,6 +94,7 @@ function getSettings() {
 
   return {
     model: getModel(),
+    theme: THEMES.includes(data.theme) ? data.theme : "system",
     hasKey: Boolean(stored || process.env.OPENROUTER_API_KEY),
     keySource: stored ? "settings" : process.env.OPENROUTER_API_KEY ? "environment" : null,
     encryptionAvailable: encryption,
@@ -100,11 +102,15 @@ function getSettings() {
   };
 }
 
-function saveSettings({ apiKey, model } = {}) {
+function saveSettings({ apiKey, model, theme } = {}) {
   const data = read();
 
   if (typeof model === "string" && model.trim()) {
     data.model = model.trim();
+  }
+
+  if (typeof theme === "string" && THEMES.includes(theme)) {
+    data.theme = theme;
   }
 
   if (typeof apiKey === "string" && apiKey.trim()) {
@@ -132,6 +138,7 @@ function clearApiKey() {
 
 module.exports = {
   DEFAULT_MODEL,
+  THEMES,
   getApiKey,
   getModel,
   getSettings,

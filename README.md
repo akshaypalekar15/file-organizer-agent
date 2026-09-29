@@ -21,6 +21,47 @@ There is no key in the source and no key is bundled. This is a bring-your-own-ke
 app: your key is stored encrypted on your machine and is never transmitted
 anywhere except as an `Authorization` header to OpenRouter.
 
+### Starting over
+
+**Clear** empties the whole index: every indexed file, every remembered scan
+root, and all live watchers. It asks for confirmation first, spelling out how
+many files and folders are affected.
+
+It only ever touches the index, never your actual files — the index is a
+derived cache, so re-scanning rebuilds it. The button is available as soon as
+there is anything to clear, including from a previous session, so you can
+start from a clean slate without first scanning something else.
+
+### Appearance
+
+**Settings → Appearance** offers *Match my system*, *Light*, and *Dark*. The
+default follows your OS and updates live if you change it, including while the
+app is open. Colours are defined once as CSS custom properties, so there is a
+single source of truth rather than dark overrides scattered through the
+stylesheet.
+
+### Loading states
+
+While a panel's data is in flight it shows shimmering placeholder rows, and
+the real rows fade in staggered so a populated list reads as filling in rather
+than snapping into place. The AI suggestions panel additionally shows a spinner
+and a running elapsed timer, because that call can take a while.
+
+Every animation is disabled or replaced under
+`prefers-reduced-motion: reduce` — rotation becomes a fade, and the row reveal
+is dropped entirely — so the activity signal survives without continuous
+motion.
+
+### What the app skips
+
+The scanner does not walk into `node_modules`, `.git`, `.next`, `dist`,
+`build`, `__pycache__`, or any folder starting with a dot. Junctions and
+symlinks are skipped too, and the count is reported after each scan rather
+than being dropped silently — following a link that points at an ancestor
+produces an infinite walk, and the live watcher has to agree with the scanner
+or the index and its live updates drift apart. If you need link following,
+treat it as a feature request rather than something to turn on blindly.
+
 ### How the key is stored
 
 `src/main/settings.js` encrypts the key with Electron's
@@ -42,6 +83,10 @@ rather than implying it is protected.
 | Model | Settings dialog → `OPENROUTER_MODEL` env var / `.env` → `anthropic/claude-sonnet-4.6` |
 
 The env vars are a convenience for headless and CI runs. See `.env.example`.
+
+`OPENROUTER_TIMEOUT_MS` (default 120000) bounds the suggestions call, so a
+hung request surfaces an error instead of leaving the spinner running
+forever. The UI shows a spinner and a running elapsed timer while it waits.
 
 ## How it works
 
@@ -108,6 +153,8 @@ a v2 feature once the core loop (scan → suggest → apply) is working.
 4. Package with `electron-builder` for a distributable `.dmg` / `.exe`.
 5. Consider swapping the local Express API for Electron's IPC directly if
    you don't need it reachable from a browser too.
+6. Optionally follow junctions/symlinks, behind a setting, with a shared
+   cycle guard for both the scanner and the watcher.
 
 ## Project structure
 

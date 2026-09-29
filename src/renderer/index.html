@@ -11,11 +11,17 @@
     <div class="actions">
       <button id="pick-folder">Choose folder to scan</button>
       <span id="current-root">No folder selected</span>
+      <button id="clear-index" class="danger" disabled>Clear</button>
       <button id="open-settings" class="secondary">Settings</button>
     </div>
   </header>
 
   <main>
+    <section id="files-panel">
+      <h2>Files in this folder</h2>
+      <div id="files-list">Scan a folder to see its files.</div>
+    </section>
+
     <section id="stats-panel">
       <h2>Storage by type</h2>
       <div id="stats-list">Scan a folder to see stats.</div>
@@ -39,6 +45,16 @@
   <dialog id="settings-dialog">
     <form id="settings-form" method="dialog">
       <h2>Settings</h2>
+
+      <label for="theme">Appearance</label>
+      <select id="theme">
+        <option value="system">Match my system</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <p class="hint">
+        System follows your operating system's light or dark setting and updates live.
+      </p>
 
       <label for="api-key">OpenRouter API key</label>
       <input

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("agent", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
   clearApiKey: () => ipcRenderer.invoke("settings:clear"),
+  confirmClear: (summary) => ipcRenderer.invoke("confirm-clear", summary),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   apiBase: "http://127.0.0.1:4287",
 });
