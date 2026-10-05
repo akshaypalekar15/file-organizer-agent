@@ -21,6 +21,32 @@ There is no key in the source and no key is bundled. This is a bring-your-own-ke
 app: your key is stored encrypted on your machine and is never transmitted
 anywhere except as an `Authorization` header to OpenRouter.
 
+### If `npm install` fails to build better-sqlite3
+
+`better-sqlite3` is a native module, and it ships prebuilt binaries per Node
+ABI. Very new Node releases often have no prebuild yet, at which point npm
+falls back to compiling from source and fails unless Visual Studio's "Desktop
+development with C++" workload is installed. The error mentions `node-gyp`,
+`find VS`, or `NODE_MODULE_VERSION`.
+
+Use a Node version that has a prebuild, then rebuild for Electron's ABI:
+
+```bash
+nvm use 22          # or 20
+npm install
+npx @electron/rebuild -f -w better-sqlite3
+npm start
+```
+
+Two things worth knowing:
+
+- The rebuild step is not optional. A binary built for your Node's ABI will not
+  load inside Electron, which has its own. If the app starts and then throws
+  `was compiled against a different Node.js version`, this is the fix.
+- Do not re-run `npm install` or `npm rebuild` under a newer Node afterwards.
+  That overwrites the Electron-ABI binary with a Node-ABI one and the app stops
+  working. Re-run the `@electron/rebuild` command to fix it.
+
 ### Starting over
 
 **Clear** empties the whole index: every indexed file, every remembered scan
