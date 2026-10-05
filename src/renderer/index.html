@@ -38,6 +38,24 @@
       <p id="key-hint" class="muted hidden">
         Add your own OpenRouter API key in <button id="hint-settings" class="link">Settings</button> to enable suggestions.
       </p>
+      <div id="apply-toolbar" class="hidden">
+        <label class="checkbox">
+          <input type="checkbox" id="select-all" checked />
+          Select all
+        </label>
+        <span id="selection-count" class="muted"></span>
+        <span class="spacer"></span>
+        <button id="undo-last" class="secondary" disabled>Undo last batch</button>
+        <button id="review-changes" disabled>Review changes</button>
+      </div>
+      <div id="apply-review" class="hidden">
+        <div id="review-list"></div>
+        <div class="dialog-actions">
+          <button id="review-cancel" class="secondary">Back</button>
+          <span class="spacer"></span>
+          <button id="review-apply">Apply</button>
+        </div>
+      </div>
       <div id="suggestions-list"></div>
     </section>
   </main>

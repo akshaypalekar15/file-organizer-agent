@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
 const { loadEnv } = require("./env");
 const { getSettings, saveSettings, clearApiKey } = require("./settings");
-const { startServer } = require("./server");
+const { startServer, API_TOKEN } = require("./server");
 const { stopAll } = require("./watcher");
 
 // Pick up OPENROUTER_API_KEY etc. from .env before anything reads them.
@@ -21,6 +21,9 @@ function createWindow() {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // The preload needs the API token so the renderer can authenticate its
+      // own requests. It is regenerated every launch.
+      additionalArguments: [`--api-token=${API_TOKEN}`],
     },
   });
 
@@ -83,8 +86,34 @@ ipcMain.handle("confirm-clear", async (_event, summary = {}) => {
   return response === 1;
 });
 
-ipcMain.handle("open-external", async (_event, url) => {
-  if (typeof url !== "string") return false;
+// Last gate before real files move. The UI has already shown a per-file review,
+// so this exists to make the decision deliberate rather than to repeat detail.
+ipcMain.handle("confirm-apply", async (_event, summary = {}) => {
+  const { count = 0, skipped = 0, sample = [] } = summary;
+
+  const detail = [
+    `${count} ${count === 1 ? "file" : "files"} will be moved.${skipped ? ` ${skipped} will be skipped.` : ""}`,
+    sample.length ? `\nFor example:\n${sample.map((s) => `  ${s}`).join("\n")}` : null,
+    "\nNothing is deleted, and you can undo this from the app afterwards.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "Apply organization changes",
+    message: count ? `Move ${count} ${count === 1 ? "file" : "files"}?` : "Nothing to apply",
+    detail,
+    buttons: ["Cancel", `Move ${count} ${count === 1 ? "file" : "files"}`],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+
+  return response === 1;
+});
+
+ipcMain.handle("open-external", async (_event, url) => {  if (typeof url !== "string") return false;
   if (!EXTERNAL_LINK_ALLOWLIST.some((prefix) => url.startsWith(prefix))) return false;
   await shell.openExternal(url);
   return true;

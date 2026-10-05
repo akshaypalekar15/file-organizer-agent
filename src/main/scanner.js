@@ -29,6 +29,11 @@ function shouldIgnoreDir(name) {
 async function indexFile(fullPath, name, now) {
   try {
     const stat = await fs.promises.stat(fullPath);
+    // chokidar reports a junction/symlink itself even with followSymlinks:
+    // false, and stat() follows it to a directory. Only real files belong in
+    // the index, so the check lives here where every caller benefits.
+    if (!stat.isFile()) return false;
+
     const extension = path.extname(name).replace(".", "");
 
     statements.upsertFile.run({
@@ -100,4 +105,4 @@ async function scanDirectory(rootPath, { onProgress } = {}) {
   return { scanned: count, linksSkipped };
 }
 
-module.exports = { scanDirectory, categorize, shouldIgnoreDir };
+module.exports = { scanDirectory, categorize, shouldIgnoreDir, indexFile };

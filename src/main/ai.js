@@ -150,8 +150,8 @@ function entryFor(item, extraKey) {
  *
  * Files are sent in batches so the per-call output stays inside a sane token
  * budget, and the merged result is filtered down to paths that were actually
- * sent. That filter matters: apply-move renames real files, so a hallucinated
- * or mistyped path in the model's reply must never reach it.
+ * sent. That filter matters: the apply endpoint renames real files, so a
+ * hallucinated or mistyped path in the model's reply must never reach it.
  */
 async function getOrganizationSuggestions(files) {
   const apiKey = settings.getApiKey();
