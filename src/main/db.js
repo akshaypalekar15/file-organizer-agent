@@ -37,6 +37,18 @@ db.exec(`
     path TEXT UNIQUE NOT NULL,
     added_at INTEGER
   );
+
+  -- One row per file actually moved, so a batch can be reversed. Rows are
+  -- deleted as they are undone, which makes this the pending-undo log.
+  CREATE TABLE IF NOT EXISTS move_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id TEXT NOT NULL,
+    from_path TEXT NOT NULL,
+    to_path TEXT NOT NULL,
+    moved_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_move_log_batch ON move_log(batch_id);
 `);
 
 const statements = {
@@ -50,7 +62,6 @@ const statements = {
       is_deleted=0
   `),
   markDeleted: db.prepare(`UPDATE files SET is_deleted = 1 WHERE path = ?`),
-  removeFile: db.prepare(`DELETE FROM files WHERE path = ?`),
   bumpOpenCount: db.prepare(`
     UPDATE files SET open_count = open_count + 1, last_opened_at = ? WHERE path = ?
   `),
@@ -110,6 +121,17 @@ const statements = {
   `),
   clearFiles: db.prepare(`DELETE FROM files`),
   clearRoots: db.prepare(`DELETE FROM scan_roots`),
+  clearMoves: db.prepare(`DELETE FROM move_log`),
+
+  // Apply support
+  getFile: db.prepare(`SELECT * FROM files WHERE path = ?`),
+  recordMove: db.prepare(
+    `INSERT INTO move_log (batch_id, from_path, to_path, moved_at) VALUES (?, ?, ?, ?)`
+  ),
+  forgetMove: db.prepare(`DELETE FROM move_log WHERE id = ?`),
+  undoCandidates: db.prepare(`
+    SELECT * FROM move_log ORDER BY batch_id DESC, id DESC
+  `),
 };
 
 /** "C:\dir\" — every file under the root starts with this. */
@@ -127,6 +149,7 @@ function clearIndex() {
   db.transaction(() => {
     statements.clearFiles.run();
     statements.clearRoots.run();
+    statements.clearMoves.run();
   })();
   try {
     db.pragma("wal_checkpoint(TRUNCATE)");

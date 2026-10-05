@@ -21,6 +21,32 @@ There is no key in the source and no key is bundled. This is a bring-your-own-ke
 app: your key is stored encrypted on your machine and is never transmitted
 anywhere except as an `Authorization` header to OpenRouter.
 
+### If `npm install` fails to build better-sqlite3
+
+`better-sqlite3` is a native module, and it ships prebuilt binaries per Node
+ABI. Very new Node releases often have no prebuild yet, at which point npm
+falls back to compiling from source and fails unless Visual Studio's "Desktop
+development with C++" workload is installed. The error mentions `node-gyp`,
+`find VS`, or `NODE_MODULE_VERSION`.
+
+Use a Node version that has a prebuild, then rebuild for Electron's ABI:
+
+```bash
+nvm use 22          # or 20
+npm install
+npx @electron/rebuild -f -w better-sqlite3
+npm start
+```
+
+Two things worth knowing:
+
+- The rebuild step is not optional. A binary built for your Node's ABI will not
+  load inside Electron, which has its own. If the app starts and then throws
+  `was compiled against a different Node.js version`, this is the fix.
+- Do not re-run `npm install` or `npm rebuild` under a newer Node afterwards.
+  That overwrites the Electron-ABI binary with a Node-ABI one and the app stops
+  working. Re-run the `@electron/rebuild` command to fix it.
+
 ### Starting over
 
 **Clear** empties the whole index: every indexed file, every remembered scan
@@ -100,7 +126,7 @@ forever. The UI shows a spinner and a running elapsed timer while it waits.
 - **AI layer** (`src/main/ai.js`) sends a metadata-only snapshot (paths,
   sizes, extensions, timestamps — never contents) to OpenRouter and asks for a
   JSON organization plan.
-- **Settings** (`src/main/settings.js`) persists the BYOK key and model.
+- **Settings** (`src/main/settings.js`) persists the BYOK key, model and theme.
   Reached from the renderer over IPC (`settings:get` / `settings:save` /
   `settings:clear`), not over HTTP.
 - **Env loader** (`src/main/env.js`) reads `.env` at startup without adding a
@@ -108,6 +134,42 @@ forever. The UI shows a spinner and a running elapsed timer while it waits.
 - **Renderer** (`src/renderer/`) is plain HTML/JS for now — swap in your
   Next.js/React setup once the API contract feels right; it's a static
   bundle either way since Electron just loads local files.
+
+## Applying changes
+
+Suggested moves are listed as checkboxes. Pick what you want, hit **Review
+changes**, and the app dry-runs the plan through the API to show a per-file
+`from → to` list, including anything that will be skipped and why. Nothing
+touches disk until you confirm, and a native dialog asks once more before the
+move happens.
+
+The guarantees this makes:
+
+- **Nothing is ever deleted.** Archive candidates are applied as a move into an
+  `_archive` folder under the scanned root.
+- **Nothing is ever overwritten.** If a file already exists at the destination,
+  that file is skipped and reported.
+- **Every move is reversible.** Applied moves go into a `move_log` table and
+  **Undo last batch** puts the whole batch back. An item stays on the log if it
+  could not be reversed, so it can be retried.
+- **Only indexed files can move, and only within a scanned folder.** The source
+  must be a live row in the index, and the resolved destination must land
+  inside one of the scan roots. `..` and absolute destinations are rejected, so
+  neither a hallucinated suggestion nor a crafted request can escape the tree
+  you chose to scan.
+
+## The local API is authenticated
+
+Every `/api/*` route requires a token that is generated fresh on each launch
+and handed to the renderer through the preload bridge. Requests from a
+non-loopback host are refused, and the token is compared in constant time.
+
+This matters because the server binds to `127.0.0.1:4287`, which every web page
+in your browser can reach. Without the token, any page you happened to have
+open could scan folders, read your file index, and move files. A page cannot
+read the token (different origin) and cannot send a custom header without a
+CORS preflight, which this server never answers.
+
 
 ## Privacy — what actually leaves your machine
 
@@ -146,14 +208,13 @@ a v2 feature once the core loop (scan → suggest → apply) is working.
 
 ## Suggested next steps
 
-1. Wire `POST /api/apply-move` up to a confirmation dialog in the UI before
-   any file actually moves.
-2. Add an exclude-list setting so the agent never touches certain folders.
-3. Add duplicate detection (hash files during scan, flag matches).
-4. Package with `electron-builder` for a distributable `.dmg` / `.exe`.
-5. Consider swapping the local Express API for Electron's IPC directly if
-   you don't need it reachable from a browser too.
-6. Optionally follow junctions/symlinks, behind a setting, with a shared
+1. Add an exclude-list setting so the agent never touches certain folders.
+2. Add duplicate detection (hash files during scan, flag matches).
+3. Package with `electron-builder` for a distributable `.dmg` / `.exe`.
+4. Consider swapping the local Express API for Electron's IPC directly if
+   you don't need it reachable from a browser too. That would also retire the
+   loopback token, since no socket would be exposed.
+5. Optionally follow junctions/symlinks, behind a setting, with a shared
    cycle guard for both the scanner and the watcher.
 
 ## Project structure

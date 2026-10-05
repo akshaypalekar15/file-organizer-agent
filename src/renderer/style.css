@@ -278,6 +278,78 @@ dialog::backdrop { background: var(--backdrop); }
 #settings-save:hover { filter: brightness(1.08); background: var(--accent); }
 #key-hint { margin: 10px 0 0; }
 
+/* --- apply toolbar and review ------------------------------------------ */
+
+#apply-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+#apply-toolbar .spacer { flex: 1; }
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin: 0;
+  font-weight: 400;
+}
+.checkbox input { accent-color: var(--accent); width: 14px; height: 14px; }
+
+.suggestion-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.suggestion-row:last-child { border-bottom: none; }
+.suggestion-row input { margin-top: 2px; accent-color: var(--accent); flex: 0 0 auto; }
+.suggestion-body { flex: 1; min-width: 0; }
+.suggestion-path {
+  font-family: Consolas, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggestion-target { color: var(--accent); font-size: 12px; }
+.suggestion-reason { color: var(--text-muted); font-size: 12px; }
+
+#apply-review {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+#apply-review h3 { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); }
+#apply-review .dialog-actions { margin-top: 12px; }
+.review-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.review-row:last-child { border-bottom: none; }
+.review-row .from, .review-row .to {
+  font-family: Consolas, "SF Mono", Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-row .to { color: var(--accent); text-align: right; }
+.review-row.skipped .to { color: var(--danger); }
+
 /* --- reduced motion --------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

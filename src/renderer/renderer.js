@@ -3,6 +3,23 @@ let currentRoot = null;
 let hasApiKey = false;
 let savedModel = "";
 let savedTheme = "system";
+const ARCHIVE_FOLDER = "_archive";
+
+/**
+ * Every call to the local API must carry the per-launch token. Without it the
+ * server rejects the request, which is what stops any other web page from
+ * driving this API.
+ */
+function apiFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Agent-Token": window.agent.apiToken,
+      ...(options.headers || {}),
+    },
+  });
+}
 
 const pickFolderBtn = document.getElementById("pick-folder");
 const currentRootLabel = document.getElementById("current-root");
@@ -22,6 +39,20 @@ const keyHint = document.getElementById("key-hint");
 const openSettingsBtn = document.getElementById("open-settings");
 const clearBtn = document.getElementById("clear-index");
 const themeInput = document.getElementById("theme");
+const applyToolbar = document.getElementById("apply-toolbar");
+const selectAll = document.getElementById("select-all");
+const selectionCount = document.getElementById("selection-count");
+const reviewBtn = document.getElementById("review-changes");
+const undoBtn = document.getElementById("undo-last");
+const applyReview = document.getElementById("apply-review");
+const reviewList = document.getElementById("review-list");
+const reviewApply = document.getElementById("review-apply");
+const reviewCancel = document.getElementById("review-cancel");
+
+/** The plan currently under review, set by the Review step. */
+let pendingPlan = [];
+/** The suggestion list as last rendered, indexed to match the checkboxes. */
+let currentPlan = [];
 
 /**
  * Applies the appearance choice. "system" removes the attribute entirely so
@@ -146,7 +177,7 @@ pickFolderBtn.addEventListener("click", async () => {
   showSkeleton(staleList, 5);
   suggestBtn.disabled = true;
 
-  const res = await fetch(`${api}/api/scan`, {
+  const res = await apiFetch(`${api}/api/scan`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ rootPath: folder }),
@@ -331,7 +362,7 @@ function loadFiles() {
   return loadPanel(
     filesList,
     async () => {
-      const res = await fetch(`${api}/api/files${withRoot("?limit=200")}`);
+      const res = await apiFetch(`${api}/api/files${withRoot("?limit=200")}`);
       const files = await res.json();
       return files.map((f) => [
         [f.path.replace(`${currentRoot}\\`, ""), "path"],
@@ -346,7 +377,7 @@ function loadStats() {
   return loadPanel(
     statsList,
     async () => {
-      const res = await fetch(`${api}/api/stats${withRoot("")}`);
+      const res = await apiFetch(`${api}/api/stats${withRoot("")}`);
       const stats = await res.json();
       return stats.map((s) => [
         [s.extension || "(none)", ""],
@@ -361,7 +392,7 @@ function loadStale() {
   return loadPanel(
     staleList,
     async () => {
-      const res = await fetch(`${api}/api/stale${withRoot("?days=180&limit=30")}`);
+      const res = await apiFetch(`${api}/api/stale${withRoot("?days=180&limit=30")}`);
       const files = await res.json();
       return files.map((f) => [
         [f.name, "path"],
@@ -388,7 +419,7 @@ clearBtn.addEventListener("click", async () => {
 
   let summary = { fileCount: 0, rootCount: 0, folder: currentRoot };
   try {
-    const res = await fetch(`${api}/api/summary`);
+    const res = await apiFetch(`${api}/api/summary`);
     if (res.ok) summary = { ...summary, ...(await res.json()) };
   } catch {
     // Fall back to zeros; the confirm dialog still explains the consequences.
@@ -399,7 +430,7 @@ clearBtn.addEventListener("click", async () => {
   clearBtn.disabled = true;
   clearBtn.textContent = "Clearing…";
   try {
-    const res = await fetch(`${api}/api/clear`, { method: "POST" });
+    const res = await apiFetch(`${api}/api/clear`, { method: "POST" });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || "clear failed");
 
@@ -429,28 +460,38 @@ suggestBtn.addEventListener("click", async () => {
   );
 
   try {
-    const res = await fetch(`${api}/api/suggestions`, { method: "POST" });
+    const res = await apiFetch(`${api}/api/suggestions`, { method: "POST" });
     const data = await res.json();
 
     if (data.error) throw new Error(data.error);
 
-    const rows = [];
+    const plan = [];
     for (const move of data.moves || []) {
-      rows.push([[move.path, "path"], [`→ ${move.suggestedFolder}`, "muted"]]);
+      if (move?.path && move?.suggestedFolder) {
+        plan.push({ path: move.path, suggestedFolder: move.suggestedFolder, reason: move.reason });
+      }
     }
     for (const candidate of data.archiveCandidates || []) {
-      rows.push([[candidate.path, "path"], [candidate.reason || "archive", "muted"]]);
+      if (candidate?.path) {
+        // Archive candidates are a move into one folder, never a delete.
+        plan.push({
+          path: candidate.path,
+          suggestedFolder: ARCHIVE_FOLDER,
+          reason: candidate.reason || "archive candidate",
+        });
+      }
     }
-    for (const warning of data.warnings || []) {
-      rows.push([[`Incomplete: ${warning}`, "error"]]);
+
+    renderPlan(plan);
+
+    const warnings = data.warnings || [];
+    if (warnings.length && !plan.length) {
+      renderRows(suggestionsList, warnings.map((w) => [[`Incomplete: ${w}`, "error"]]), "");
     }
     if (data.raw) {
       renderRows(suggestionsList, [[[data.raw, "muted"]]], "");
-    } else {
-      renderRows(suggestionsList, rows, "The model had no suggestions for this folder.", {
-        animate: true,
-      });
     }
+    await refreshUndoState();
   } catch (err) {
     renderRows(suggestionsList, [[[`Couldn't get suggestions: ${err.message}`, "error"]]], "");
   } finally {
@@ -461,12 +502,240 @@ suggestBtn.addEventListener("click", async () => {
   }
 });
 
+/** Renders the suggestion plan as selectable rows. */
+function renderPlan(plan) {
+  applyReview.classList.add("hidden");
+  pendingPlan = [];
+  currentPlan = plan;
+
+  if (!plan.length) {
+    applyToolbar.classList.add("hidden");
+    renderRows(suggestionsList, [], "The model had no suggestions for this folder.");
+    return;
+  }
+
+  applyToolbar.classList.remove("hidden");
+  suggestionsList.replaceChildren();
+
+  plan.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "suggestion-row reveal";
+    row.style.animationDelay = `${Math.min(index * REVEAL_STAGGER_MS, REVEAL_CAP_MS)}ms`;
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = true;
+    box.dataset.index = String(index);
+
+    const body = document.createElement("div");
+    body.className = "suggestion-body";
+
+    const path = document.createElement("span");
+    path.className = "suggestion-path";
+    path.textContent = item.path;
+
+    const target = document.createElement("div");
+    target.className = "suggestion-target";
+    target.textContent = `→ ${item.suggestedFolder}`;
+
+    body.append(path, target);
+    if (item.reason) {
+      const reason = document.createElement("div");
+      reason.className = "suggestion-reason";
+      reason.textContent = item.reason;
+      body.append(reason);
+    }
+
+    row.append(box, body);
+    suggestionsList.append(row);
+  });
+
+  // Keep the plan and the checkboxes in step.
+  suggestionsList.dataset.size = String(plan.length);
+  suggestionsList.onchange = (event) => {
+    if (event.target.type === "checkbox") updateSelection();
+  };
+  updateSelection();
+}
+
+function selectedIndexes() {
+  return [...suggestionsList.querySelectorAll('input[type="checkbox"]')]
+    .map((box, i) => (box.checked ? i : -1))
+    .filter((i) => i >= 0);
+}
+
+function updateSelection() {
+  const boxes = [...suggestionsList.querySelectorAll('input[type="checkbox"]')];
+  const chosen = boxes.filter((b) => b.checked).length;
+  selectionCount.textContent = `${chosen} of ${boxes.length} selected`;
+  selectAll.checked = boxes.length > 0 && chosen === boxes.length;
+  reviewBtn.disabled = chosen === 0;
+}
+
+selectAll.addEventListener("change", () => {
+  for (const box of suggestionsList.querySelectorAll('input[type="checkbox"]')) {
+    box.checked = selectAll.checked;
+  }
+  updateSelection();
+});
+
+async function refreshUndoState() {
+  try {
+    const res = await apiFetch(`${api}/api/undo`);
+    if (!res.ok) return;
+    const data = await res.json();
+    undoBtn.disabled = !data.available;
+    undoBtn.textContent = data.available ? `Undo last batch (${data.count})` : "Undo last batch";
+  } catch {
+    undoBtn.disabled = true;
+  }
+}
+
+function shortPath(p, root) {
+  if (!p) return "";
+  return root && p.startsWith(root) ? p.slice(root.length + 1) : p;
+}
+
+/** Dry-run the plan and show exactly what would happen, per file. */
+reviewBtn.addEventListener("click", async () => {
+  const items = selectedIndexes().map((i) => ({
+    path: currentPlan[i].path,
+    suggestedFolder: currentPlan[i].suggestedFolder,
+  }));
+  if (!items.length) return;
+
+  reviewBtn.disabled = true;
+  reviewBtn.textContent = "Checking…";
+  try {
+    const res = await apiFetch(`${api}/api/apply`, {
+      method: "POST",
+      body: JSON.stringify({ items, dryRun: true }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    reviewList.replaceChildren();
+    const heading = document.createElement("h3");
+    const moving = data.results.filter((r) => r.status === "would-move").length;
+    const skipped = data.results.length - moving;
+    heading.textContent = `${moving} ${moving === 1 ? "file" : "files"} will move${
+      skipped ? `, ${skipped} skipped` : ""
+    }.`;
+    reviewList.append(heading);
+
+    for (const r of data.results) {
+      const row = document.createElement("div");
+      row.className = r.status === "would-move" ? "review-row" : "review-row skipped";
+      const from = document.createElement("span");
+      from.className = "from";
+      from.textContent = shortPath(r.fromPath, currentRoot);
+      const to = document.createElement("span");
+      to.className = "to";
+      to.textContent =
+        r.status === "would-move" ? shortPath(r.toPath, currentRoot) : `skipped — ${r.reason}`;
+      row.append(from, to);
+      reviewList.append(row);
+    }
+
+    pendingPlan = items;
+    reviewApply.disabled = moving === 0;
+    reviewApply.textContent = `Move ${moving} ${moving === 1 ? "file" : "files"}`;
+    applyReview.classList.remove("hidden");
+  } catch (err) {
+    renderRows(suggestionsList, [[[`Couldn't check that plan: ${err.message}`, "error"]]], "");
+  } finally {
+    reviewBtn.disabled = false;
+    reviewBtn.textContent = "Review changes";
+  }
+});
+
+reviewCancel.addEventListener("click", () => {
+  applyReview.classList.add("hidden");
+  pendingPlan = [];
+  updateSelection();
+});
+
+reviewApply.addEventListener("click", async () => {
+  const items = pendingPlan;
+  if (!items.length) return;
+
+  const confirmed = await window.agent.confirmApply({
+    count: items.length,
+    sample: items.slice(0, 4).map((i) => `${shortPath(i.path, currentRoot)} → ${i.suggestedFolder}`),
+  });
+  if (!confirmed) return;
+
+  reviewApply.disabled = true;
+  reviewApply.textContent = "Moving…";
+  try {
+    const res = await apiFetch(`${api}/api/apply`, {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    applyReview.classList.add("hidden");
+    renderRows(
+      suggestionsList,
+      data.results.map((r) => [
+        [shortPath(r.path, currentRoot), "path"],
+        [
+          r.status === "moved"
+            ? `moved → ${shortPath(r.toPath, currentRoot)}`
+            : `skipped — ${r.reason}`,
+          r.status === "moved" ? "muted" : "error",
+        ],
+      ]),
+      "Nothing was changed."
+    );
+
+    pendingPlan = [];
+    await Promise.all([loadFiles(), loadStats(), loadStale()]);
+    await refreshUndoState();
+  } catch (err) {
+    renderRows(suggestionsList, [[[`Couldn't apply: ${err.message}`, "error"]]], "");
+  } finally {
+    reviewApply.disabled = false;
+    reviewApply.textContent = "Apply";
+    updateSelection();
+  }
+});
+
+undoBtn.addEventListener("click", async () => {
+  undoBtn.disabled = true;
+  try {
+    const res = await apiFetch(`${api}/api/undo`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    renderRows(
+      suggestionsList,
+      data.results.map((r) => [
+        [shortPath(r.toPath, currentRoot), "path"],
+        [
+          r.status === "restored"
+            ? `restored to ${shortPath(r.fromPath, currentRoot)}`
+            : `skipped — ${r.reason}`,
+          r.status === "restored" ? "muted" : "error",
+        ],
+      ]),
+      "Nothing to restore."
+    );
+
+    await Promise.all([loadFiles(), loadStats(), loadStale()]);
+    await refreshUndoState();
+  } catch (err) {
+    renderRows(suggestionsList, [[[`Couldn't undo: ${err.message}`, "error"]]], "");
+  }
+});
+
 // The index survives restarts, so offer Clear straight away rather than making
 // the user scan something before they can clear the previous session's data.
 (async function init() {
   await refreshSettings();
   try {
-    const res = await fetch(`${api}/api/summary`);
+    const res = await apiFetch(`${api}/api/summary`);
     if (!res.ok) return;
     const { files, roots } = await res.json();
     clearBtn.disabled = !files && !roots;

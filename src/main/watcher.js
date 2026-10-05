@@ -1,8 +1,7 @@
 const chokidar = require("chokidar");
-const fs = require("fs");
 const path = require("path");
 const { statements } = require("./db");
-const { categorize } = require("./scanner");
+const { indexFile } = require("./scanner");
 
 const watchers = new Map(); // rootPath -> chokidar instance
 
@@ -30,28 +29,9 @@ function watchRoot(rootPath) {
 }
 
 async function upsertFromDisk(filePath) {
-  try {
-    const stat = await fs.promises.stat(filePath);
-    // chokidar still reports a junction/symlink itself even with
-    // followSymlinks: false, and stat() follows it to a directory. Only real
-    // files belong in the index, matching what scanner.js records.
-    if (!stat.isFile()) return;
-
-    const extension = path.extname(filePath).replace(".", "");
-    statements.upsertFile.run({
-      path: filePath,
-      name: path.basename(filePath),
-      extension,
-      directory: path.dirname(filePath),
-      size: stat.size,
-      created_at: Math.floor(stat.birthtimeMs),
-      modified_at: Math.floor(stat.mtimeMs),
-      last_scanned_at: Date.now(),
-      category: categorize(extension),
-    });
-  } catch {
-    // file may already be gone; ignore
-  }
+  // indexFile is shared with the scanner and the apply endpoint, so all three
+  // agree on what counts as an indexable file.
+  await indexFile(filePath, path.basename(filePath), Date.now());
 }
 
 /**
